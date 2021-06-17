@@ -18,9 +18,9 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif ()
 # --------------------------------
 
-#if (NOT WIN32)
-#    message(FATAL_ERROR "Not supported on other systems than windows")
-#endif ()
+if (NOT WIN32)
+    message(FATAL_ERROR "Not supported on other systems than windows")
+endif ()
 
 set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,17 +29,9 @@ set (CMAKE_POSITION_INDEPENDENT_CODE ON)
 set (THREADS_PREFER_PTHREAD_FLAG ON)
 find_package (Threads REQUIRED)
 
-add_executable (${project}
-    main.cpp
-    gameevent.h
-    gameevent.cpp
-    gameeventmanager.h
-    gameeventmanager.cpp
-    gameeventlistener.h
-    utils.h
-    flashbanglistener.h
-    flashbanglistener.cpp
-#    resources.rc
+add_library (${project} SHARED
+    dllmain.cpp
+    csgo.h
 )
 
 target_link_libraries (${project} PRIVATE
