@@ -31,14 +31,15 @@ find_package (Threads REQUIRED)
 
 add_library (${project} SHARED
     dllmain.cpp
+    arduinocom.h
+    arduinocom.cpp
+    regkeyutils.h
+    regkeyutils.cpp
     csgo.h
 )
 
 target_link_libraries (${project} PRIVATE
     Threads::Threads
     ${CMAKE_DL_LIBS}
-    ws2_32
-    winmm
-    Rpcrt4
-    Iphlpapi
+    Advapi32
 )

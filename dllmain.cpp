@@ -5,21 +5,23 @@
 #include <iostream>
 
 #include "csgo.h"
+#include "arduinocom.h"
 
 template <typename T>
-T readMemory(ptrdiff_t ptr)
+constexpr T readMemory(ptrdiff_t ptr)
 {
-    return *(T*)ptr;
+    return *reinterpret_cast<T*>(ptr);
 }
 
+ArduinoCom com;
 float lastStrength = 0;
 float currentStrength = 0;
 std::chrono::high_resolution_clock::time_point lastChange;
 
 
-void printStrength()
+void strengthUpdated()
 {
-    std::cout << "Flash expires in " << currentStrength << " seconds" << std::endl;
+    com.setLightPower(currentStrength);
 }
 
 void handleFlashStrength(float strength)
@@ -28,8 +30,9 @@ void handleFlashStrength(float strength)
 
     if (strength != lastStrength) {
         if (strength > currentStrength) {
+            std::cout << "Flash expires in " << strength << " seconds" << std::endl;
             currentStrength = strength;
-            printStrength();
+            strengthUpdated();
         }
         lastStrength = strength;
         lastChange = std::chrono::high_resolution_clock::now();
@@ -47,7 +50,7 @@ void handleFlashStrength(float strength)
                 currentStrength = 0;
             }
 
-            printStrength();
+            strengthUpdated();
             lastChange = now;
         }
     }
@@ -62,10 +65,13 @@ DWORD WINAPI UwU(HMODULE hModule)
 
     std::cout << "FlashbangEnhancer loaded!" << std::endl;
 
+    com.tryConnect();
+
     DWORD moduleBase =(DWORD)GetModuleHandle("client.dll");
 
     lastChange = std::chrono::high_resolution_clock::now();
 
+    int i = 0;
     while (!GetAsyncKeyState(VK_F1)) {
 
         DWORD localPlayer = readMemory<DWORD>(moduleBase + offsets::dwLocalPlayer);
