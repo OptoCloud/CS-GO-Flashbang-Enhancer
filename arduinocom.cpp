@@ -39,6 +39,12 @@ bool ArduinoCom::tryConnect()
             continue;
         }
 
+        // Get friendly name of port
+        std::string friendlyname;
+        if (!RegKeyUtils::GetRegKeyString(info.keyInfo.key, "FriendlyName", friendlyname)) {
+            continue;
+        }
+
         // Get 2nd folder
         if (!RegKeyUtils::GetSubKeyIndex(info.keyInfo.key, 0, info)) {
             continue;
@@ -55,7 +61,7 @@ bool ArduinoCom::tryConnect()
             continue;
         }
 
-        std::cout << "Connected to " << portname << std::endl;
+        std::cout << "Connected to " << friendlyname << std::endl;
 
         // Do some basic settings
         DCB serialParams{};
