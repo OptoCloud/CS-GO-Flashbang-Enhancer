@@ -65,20 +65,25 @@ DWORD WINAPI UwU(HMODULE hModule)
 
     std::cout << "FlashbangEnhancer loaded!" << std::endl;
 
-    com.tryConnect();
-
     DWORD moduleBase =(DWORD)GetModuleHandle("client.dll");
 
     lastChange = std::chrono::high_resolution_clock::now();
 
-    int i = 0;
     while (!GetAsyncKeyState(VK_F1)) {
+        if (com.isConnected()) {
+            DWORD localPlayer = readMemory<DWORD>(moduleBase + offsets::dwLocalPlayer);
 
-        DWORD localPlayer = readMemory<DWORD>(moduleBase + offsets::dwLocalPlayer);
-
-        if (localPlayer != 0) {
-            float strength = readMemory<float>(localPlayer + offsets::m_flFlashDuration);
-            handleFlashStrength(strength);
+            if (localPlayer != 0) {
+                float strength = readMemory<float>(localPlayer + offsets::m_flFlashDuration);
+                handleFlashStrength(strength);
+            }
+        }
+        else if (com.tryConnect()) {
+            std::cout << "Connected to " << com.friendlyname() << std::endl;
+        }
+        else {
+            std::cout << "Looking for arduino..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

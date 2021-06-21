@@ -4,22 +4,16 @@
 #include <string>
 #include <iostream>
 
-struct RegKeyInfo {
-    DWORD nSubKeys = 0;
-    DWORD cbMaxSubKey;
-    DWORD cchMaxClass;
-};
-bool GetRegKeyInfo(HKEY regKey, RegKeyInfo& info) {
-    return RegQueryInfoKeyA(regKey, NULL, NULL, NULL, &info.nSubKeys, &info.cbMaxSubKey, &info.cchMaxClass, NULL, NULL, NULL, NULL, NULL) == ERROR_SUCCESS;
-}
-
 ArduinoCom::ArduinoCom()
+    : m_serialHandle(INVALID_HANDLE_VALUE)
+    , m_portname()
+    , m_friendlyname()
 {
 }
 
 ArduinoCom::~ArduinoCom()
 {
-    CloseHandle(m_serialHandle);
+    disconnect();
 }
 
 bool ArduinoCom::tryConnect()
@@ -32,6 +26,8 @@ bool ArduinoCom::tryConnect()
 
     auto subkeys = RegKeyUtils::GetSubKeysThatStartsWith(devicesKey, "VID_2341&PID_");
     for (auto subkey : subkeys) {
+        disconnect();
+
         RegKeyUtils::RegSubKeyInfo info;
 
         // Get 1st folder
@@ -40,8 +36,7 @@ bool ArduinoCom::tryConnect()
         }
 
         // Get friendly name of port
-        std::string friendlyname;
-        if (!RegKeyUtils::GetRegKeyString(info.keyInfo.key, "FriendlyName", friendlyname)) {
+        if (!RegKeyUtils::GetRegKeyString(info.keyInfo.key, "FriendlyName", m_friendlyname)) {
             continue;
         }
 
@@ -51,17 +46,14 @@ bool ArduinoCom::tryConnect()
         }
 
         // Get portname
-        std::string portname;
-        if (!RegKeyUtils::GetRegKeyString(info.keyInfo.key, "PortName", portname)) {
+        if (!RegKeyUtils::GetRegKeyString(info.keyInfo.key, "PortName", m_portname)) {
             continue;
         }
 
-        HANDLE serialHandle = CreateFileA(("\\\\.\\" + portname).data(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+        HANDLE serialHandle = CreateFileA(("\\\\.\\" + m_portname).data(), GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
         if (serialHandle == INVALID_HANDLE_VALUE) {
             continue;
         }
-
-        std::cout << "Connected to " << friendlyname << std::endl;
 
         // Do some basic settings
         DCB serialParams{};
@@ -94,25 +86,50 @@ bool ArduinoCom::tryConnect()
         return true;
     }
 
+    disconnect();
     return false;
+}
+
+void ArduinoCom::disconnect()
+{
+    CloseHandle(m_serialHandle);
+    m_serialHandle = INVALID_HANDLE_VALUE;
+    m_friendlyname.clear();
+    m_portname.clear();
+}
+
+bool ArduinoCom::isConnected() const noexcept
+{
+    return m_serialHandle != INVALID_HANDLE_VALUE;
+}
+
+std::string ArduinoCom::portname() const
+{
+    return m_portname;
+}
+
+std::string ArduinoCom::friendlyname() const
+{
+    return m_friendlyname;
 }
 
 bool ArduinoCom::setLightPower(float power)
 {
-    try {
-        float fval = power;
+    float fval = power;
 
-        fval /= 3.f;
-        fval *= 255;
-        fval  = fval > 255.f ? 255.f : fval;
+    fval /= 3.f;
+    fval *= 255;
+    fval  = fval > 255.f ? 255.f : fval;
 
-        std::uint8_t command[3]{ 0xAA, 0x00, 0xCC };
-        command[1] = (std::uint8_t)fval;
+    std::uint8_t command[3]{ 0xAA, 0x00, 0xCC };
+    command[1] = (std::uint8_t)fval;
 
-        if (WriteFile(m_serialHandle, command, 3, NULL, NULL) == FALSE) {
-            return false;
+    if (WriteFile(m_serialHandle, command, 3, NULL, NULL) == FALSE) {
+        if (GetLastError() == ERROR_BROKEN_PIPE) {
+            disconnect();
         }
-    }  catch (...) { return false; }
+        return false;
+    }
 
     return true;
 }
